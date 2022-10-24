@@ -93,27 +93,45 @@ public class PuppyProtector {
 
 			ResourceLocation targetResourceLocation = entityTypeRegistryCache.getKey(target.getType());
 
+			if (PuppyProtectorConfig.protectNamedEntities.get() && target.hasCustomName()) {
+				if (target instanceof LivingEntity e) {
+					addProtectionEffects(e);
+				} else {
+					LOGGER.warn("Entity {} has a custom name but is not a LivingEntity", targetResourceLocation);
+					return;
+				}
+				attacker.sendSystemMessage(Component.literal("You are a monster for trying to hurt " + target.getName().getString() + "!").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+				if (!PuppyProtectorConfig.protectNamedEntitiesPeacefully.get()) {
+					smite((ServerPlayer) attacker);
+				}
+				event.setCanceled(true);
+				return;
+			}
+
 			if (cachedProtectedEntities.contains(targetResourceLocation)) {
 				if (target instanceof LivingEntity livingEntity) {
 
 					// make sure the target is being protected from any further attempts to damage as well as lightning
-					livingEntity.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 72000, 9));
-					livingEntity.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 72000, 9));
-					livingEntity.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 72000, 9));
+					addProtectionEffects(livingEntity);
 
 					event.setCanceled(true);
-					attacker.sendSystemMessage(Component.literal("You are a monster for trying to hurt a " + target.getType().getDescription().getString()).withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+
+					attacker.sendSystemMessage(Component.literal("You are a monster for trying to hurt a " + target.getType().getDescription().getString() + "!").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
 
 					if (!cachedPeacefullyProtectedEntities.contains(targetResourceLocation)) {
 						smite((ServerPlayer) attacker);
-						if (!attacker.isDeadOrDying()) {
-							attacker.kill();
-						}
 					}
+				} else {
+					LOGGER.warn("Entity {} is in the protectedEntities list but is not a LivingEntity", targetResourceLocation);
 				}
-
 			}
 		}
+	}
+
+	private void addProtectionEffects(LivingEntity entity) {
+		entity.addEffect(new MobEffectInstance(MobEffects.DAMAGE_RESISTANCE, 72000, 9));
+		entity.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 72000, 9));
+		entity.addEffect(new MobEffectInstance(MobEffects.REGENERATION, 72000, 9));
 	}
 
 	private void smite(ServerPlayer player) {
@@ -123,6 +141,9 @@ public class PuppyProtector {
 			lightningBolt.setVisualOnly(true);
 			player.getLevel().addFreshEntity(lightningBolt);
 			player.hurt(DamageSource.LIGHTNING_BOLT, Float.MAX_VALUE);
+		}
+		if (!player.isDeadOrDying()) {
+			player.kill();
 		}
 	}
 

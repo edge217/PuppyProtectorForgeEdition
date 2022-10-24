@@ -27,6 +27,7 @@ public class PuppyProtectorConfig {
 	public static ForgeConfigSpec.ConfigValue<List<? extends String>> protectedEntities;
 	public static ForgeConfigSpec.ConfigValue<List<? extends String>> peacefullyProtectedEntities;
 	public static ForgeConfigSpec.BooleanValue protectNamedEntities;
+	public static ForgeConfigSpec.BooleanValue protectNamedEntitiesPeacefully;
 
 	static {
 		ForgeConfigSpec.Builder builder = new ForgeConfigSpec.Builder();
@@ -46,8 +47,12 @@ public class PuppyProtectorConfig {
 				.defineListAllowEmpty(List.of("peacefully_protected"), ArrayList::new, o -> o instanceof String && protectedEntities.get().contains(o));
 
 		protectNamedEntities = builder
-				.comment("Protect entities that have name tags", "Not recommended as some mods add named hostile mobs that can spawn randomly")
+				.comment("Protect entities that have name tags.", "Not recommended as some mods add named hostile mobs that can spawn randomly.")
 				.define("protected_named", false);
+
+		protectNamedEntitiesPeacefully = builder
+				.comment("If set to false, players attacking named entities will not be killed for trying to do so.")
+						.define("peacefully_protect_named_entities", true);
 
 		builder.pop();
 	}
