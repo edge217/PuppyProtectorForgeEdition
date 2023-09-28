@@ -1,0 +1,6 @@
+{
+  "item.puppyprotector.protecting_wand": "Protecting Wand",
+  "item.puppyprotector.protecting_wand.desc": "Right click a mob to protect it from being killed!",
+  "puppyprotector.entity_protected": "%s is now protected!",
+  "puppyprotector.entity_already_protected": "%s is already protected!"
+}

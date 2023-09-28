@@ -18,9 +18,11 @@
 package com.edgeburnmedia.puppyprotector;
 
 import com.edgeburnmedia.puppyprotector.config.PuppyProtectorConfig;
+import com.edgeburnmedia.puppyprotector.item.ProtectingWandItem;
 import com.mojang.logging.LogUtils;
 import net.minecraft.ChatFormatting;
 import net.minecraft.core.Registry;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerPlayer;
@@ -32,6 +34,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.item.Item;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.event.entity.player.AttackEntityEvent;
 import net.minecraftforge.eventbus.api.IEventBus;
@@ -41,6 +44,10 @@ import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.minecraftforge.fml.javafmlmod.FMLJavaModLoadingContext;
+import net.minecraftforge.registries.DeferredRegister;
+import net.minecraftforge.registries.ForgeRegistries;
+import net.minecraftforge.registries.RegistryObject;
+import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
 import java.util.ArrayList;
@@ -51,6 +58,8 @@ public class PuppyProtector {
 
 	// Define mod id in a common place for everything to reference
 	public static final String MODID = "puppyprotector";
+	public static final DeferredRegister<Item> ITEMS = DeferredRegister.create(ForgeRegistries.ITEMS, MODID);
+	public static final RegistryObject<Item> PROTECTING_WAND = ITEMS.register("protecting_wand", ProtectingWandItem::new);
 	// Directly reference a slf4j logger
 	private static final Logger LOGGER = LogUtils.getLogger();
 	private static Registry<EntityType<?>> entityTypeRegistryCache;
@@ -64,6 +73,8 @@ public class PuppyProtector {
 
 		// Register the commonSetup method for modloading
 		modEventBus.addListener(this::commonSetup);
+
+		ITEMS.register(modEventBus);
 
 		// Register ourselves for server and other game events we are interested in
 		MinecraftForge.EVENT_BUS.register(this);
@@ -92,6 +103,26 @@ public class PuppyProtector {
 			}
 
 			ResourceLocation targetResourceLocation = entityTypeRegistryCache.getKey(target.getType());
+
+			boolean protectedWithNbt = isProtectedWithNbt(target);
+			if (protectedWithNbt) {
+				if (target instanceof LivingEntity livingEntity) {
+
+					// make sure the target is being protected from any further attempts to damage as well as lightning
+					addProtectionEffects(livingEntity);
+
+					event.setCanceled(true);
+
+					String description = getEntityDescription(target);
+					attacker.sendSystemMessage(Component.literal("You are a monster for trying to hurt " + description + "!").withStyle(ChatFormatting.DARK_RED, ChatFormatting.BOLD));
+
+					if (!cachedPeacefullyProtectedEntities.contains(targetResourceLocation)) {
+						smite((ServerPlayer) attacker);
+					}
+				} else {
+					LOGGER.warn("Entity {} has puppyprotector:is_protected data but isn't a LivingEntity", targetResourceLocation);
+				}
+			}
 
 			if (PuppyProtectorConfig.protectNamedEntities.get() && target.hasCustomName()) {
 				if (target instanceof LivingEntity e) {
@@ -126,6 +157,16 @@ public class PuppyProtector {
 				}
 			}
 		}
+	}
+
+	public static boolean isProtectedWithNbt(Entity target) {
+		CompoundTag tag = target.getPersistentData();
+        return tag.getBoolean(MODID + ":is_protected");
+	}
+
+	@NotNull
+	public static String getEntityDescription(Entity target) {
+        return target.hasCustomName() ? target.getCustomName().getString() : target.getType().getDescription().getString();
 	}
 
 	private void addProtectionEffects(LivingEntity entity) {
